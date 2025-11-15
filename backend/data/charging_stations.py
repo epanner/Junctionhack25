@@ -130,6 +130,102 @@ CHARGING_STATIONS: Dict[str, Dict[str, Any]] = {
             },
         ],
     },
+    "did:itn:charger:espoo-otaniemi": {
+        "station_id": "did:itn:charger:espoo-otaniemi",
+        "name": "Otaniemi Innovation Campus",
+        "location": {
+            "city": "Espoo",
+            "country": "FI",
+            "address": "Otaniementie 9",
+            "latitude": 60.1865,
+            "longitude": 24.8307,
+        },
+        "operator": "Otaniemi Innovation Hub",
+        "connectors": [
+            {
+                "connector_id": "otaniemi-ccs-a",
+                "type": "CCS2",
+                "power_kw": 200,
+                "status": "available",
+            },
+            {
+                "connector_id": "otaniemi-ccs-b",
+                "type": "CCS2",
+                "power_kw": 200,
+                "status": "occupied",
+            },
+            {
+                "connector_id": "otaniemi-type2",
+                "type": "Type2",
+                "power_kw": 22,
+                "status": "available",
+            },
+        ],
+    },
+    "did:itn:charger:helsinki-pasila": {
+        "station_id": "did:itn:charger:helsinki-pasila",
+        "name": "Pasila Smart Mobility Hub",
+        "location": {
+            "city": "Helsinki",
+            "country": "FI",
+            "address": "Ratapihantie 11",
+            "latitude": 60.1993,
+            "longitude": 24.9338,
+        },
+        "operator": "Helsinki Smart Mobility",
+        "connectors": [
+            {
+                "connector_id": "pasila-ccs-a",
+                "type": "CCS2",
+                "power_kw": 300,
+                "status": "available",
+            },
+            {
+                "connector_id": "pasila-ccs-b",
+                "type": "CCS2",
+                "power_kw": 300,
+                "status": "available",
+            },
+            {
+                "connector_id": "pasila-chademo",
+                "type": "CHAdeMO",
+                "power_kw": 50,
+                "status": "occupied",
+            },
+        ],
+    },
+    "did:itn:charger:espoo-ringroad": {
+        "station_id": "did:itn:charger:espoo-ringroad",
+        "name": "Ring Road West Service Hub",
+        "location": {
+            "city": "Espoo",
+            "country": "FI",
+            "address": "Kehä I 120",
+            "latitude": 60.2471,
+            "longitude": 24.7589,
+        },
+        "operator": "Ring Road Energy",
+        "connectors": [
+            {
+                "connector_id": "ringroad-ccs",
+                "type": "CCS2",
+                "power_kw": 120,
+                "status": "available",
+            },
+            {
+                "connector_id": "ringroad-type2-a",
+                "type": "Type2",
+                "power_kw": 22,
+                "status": "available",
+            },
+            {
+                "connector_id": "ringroad-type2-b",
+                "type": "Type2",
+                "power_kw": 22,
+                "status": "occupied",
+            },
+        ],
+    },
 }
 
 
