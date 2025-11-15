@@ -102,7 +102,7 @@ export function DriverScreen() {
               <div className="bg-gradient-to-br from-blue-500 to-green-400 p-1.5 rounded-lg">
                 <Zap className="w-4 h-4 text-white" />
               </div>
-              <span className="text-white">ChargeID</span>
+              <span className="text-white">GridPass</span>
             </div>
             <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white p-2">
               <Menu className="w-5 h-5" />
