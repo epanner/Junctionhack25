@@ -82,8 +82,7 @@ export function DriverScreen() {
   };
 
   const handleBook = () => {
-    alert('Booking charging session...');
-    // TODO: Navigate to active session view
+    setIsSheetExpanded(false);
   };
 
   const handleSmartModeChange = (smartMode: boolean) => {

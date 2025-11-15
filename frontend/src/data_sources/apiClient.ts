@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  (globalThis?.import?.meta?.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
+  (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
   'http://localhost:8000';
 
 async function handleResponse<T>(response: Response): Promise<T> {

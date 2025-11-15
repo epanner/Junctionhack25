@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapPin, Zap, Clock, DollarSign, Battery, ChevronDown, CheckCircle2, Gauge, TrendingUp, DollarSign as Cost, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Slider } from '../ui/slider';
 import { Badge } from '../ui/badge';
-import { 
-  getVehicleBatteryStatus, 
+import {
+  bookChargingSession,
+  getVehicleBatteryStatus,
   getSmartChargingRecommendation,
   getDefaultLocation,
   type Station,
   type OptimizationMode,
-  type SmartChargingRecommendation ,
-  type VehicleBatteryStatus
+  type SmartChargingRecommendation,
+  type VehicleBatteryStatus,
 } from '../../data_sources';
 
 interface BookingSheetProps {
@@ -19,7 +20,7 @@ interface BookingSheetProps {
   setTargetSoC: (value: number) => void;
   departureTime: string;
   setDepartureTime: (value: string) => void;
-  onBook: () => void;
+  onBook?: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
   isSmartMode: boolean;
@@ -31,10 +32,10 @@ export function BookingSheet({
   setTargetSoC,
   departureTime,
   setDepartureTime,
-  onBook,
+  onBook = () => undefined,
   isExpanded,
   onToggleExpand,
-  isSmartMode
+  isSmartMode,
 }: BookingSheetProps) {
   const [batteryStatus, setBatteryStatus] = useState<VehicleBatteryStatus | null>(null);
   const [batteryError, setBatteryError] = useState<string | null>(null);
@@ -65,6 +66,8 @@ export function BookingSheet({
   const [optimizationMode, setOptimizationMode] = useState<OptimizationMode>('balanced');
   const [isCalculating, setIsCalculating] = useState(false);
   const [recommendation, setRecommendation] = useState<SmartChargingRecommendation | null>(null);
+  const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [bookingMessage, setBookingMessage] = useState<string | null>(null);
 
   const handleCalculate = async () => {
     setIsCalculating(true);
@@ -92,15 +95,57 @@ export function BookingSheet({
     }
   };
 
+  const handleBookingSession = async (forcedRecommendation?: SmartChargingRecommendation | null) => {
+    if (!selectedStation) {
+      setBookingStatus('error');
+      setBookingMessage('Select a station to start charging.');
+      return;
+    }
+
+    setBookingStatus('loading');
+    setBookingMessage('Booking session and anchoring plan...');
+
+    try {
+      await bookChargingSession({
+        station: selectedStation,
+        currentSoC: currentBattery,
+        targetSoC,
+        departureTime,
+        recommendation: forcedRecommendation ?? recommendation,
+      });
+      setBookingStatus('success');
+      setBookingMessage('Session booked! Anchor stored on Solana.');
+      setRecommendation(null);
+      onBook?.();
+    } catch (err) {
+      setBookingStatus('error');
+      setBookingMessage(
+        err instanceof Error ? err.message : 'Failed to book charging session. Please try again.'
+      );
+    }
+  };
+
   const handleAcceptRecommendation = () => {
-    // Accept the recommendation and proceed to booking
-    onBook();
+    void handleBookingSession(recommendation);
   };
 
   const handleDeclineRecommendation = () => {
     // Decline and go back to preferences form
     setRecommendation(null);
   };
+
+  const renderBookingNotice = () =>
+    bookingMessage ? (
+      <div
+        className={`mb-4 text-xs rounded-lg px-3 py-2 border ${
+          bookingStatus === 'error'
+            ? 'bg-red-900/40 border-red-500/40 text-red-100'
+            : 'bg-emerald-900/30 border-emerald-500/40 text-emerald-100'
+        }`}
+      >
+        {bookingMessage}
+      </div>
+    ) : null;
 
   // Smart Mode View - Charging Preferences Form
   if (isSmartMode && !recommendation) {
@@ -122,6 +167,8 @@ export function BookingSheet({
               {batteryError}
             </div>
           )}
+          {renderBookingNotice()}
+          {renderBookingNotice()}
           {isCalculating ? (
             // Three-way handshake animation
             <div className="flex flex-col items-center justify-center h-full">
@@ -434,6 +481,7 @@ export function BookingSheet({
             {batteryError}
           </div>
         )}
+        {renderBookingNotice()}
         {selectedStation ? (
           <>
             {/* Selected Station Info */}
@@ -520,12 +568,13 @@ export function BookingSheet({
             </div>
 
             {/* Book Button */}
-            <Button 
-              onClick={onBook}
-              className="w-full bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white py-3"
+            <Button
+              onClick={() => void handleBookingSession()}
+              disabled={bookingStatus === 'loading'}
+              className="w-full bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white py-3 disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              Book & Start Charging
+              {bookingStatus === 'loading' ? 'Booking...' : 'Book & Start Charging'}
             </Button>
           </>
         ) : (

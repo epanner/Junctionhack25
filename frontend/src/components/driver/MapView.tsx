@@ -45,7 +45,7 @@ export function MapView({
     MAPBOX_TOKEN !== "",
   );
   const [error, setError] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState("San Francisco");
+  const [locationName, setLocationName] = useState("Espoo");
   const [isLocating, setIsLocating] = useState(false);
   const [isSmartMode, setIsSmartMode] = useState(false);
 
