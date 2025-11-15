@@ -6,3 +6,7 @@ venv/
 __pycache__/
 *.pyc
 .cache/
+
+# Environment variables + secrets
+.env
+id.json
