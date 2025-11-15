@@ -10,6 +10,7 @@ from routers.session_auth import router as session_auth_router
 async def lifespan(app: FastAPI):
     global denso
     denso = DensoDIDClient(base_url=settings.denso_base_url)
+    app.state.denso_client = denso
     try:
         yield
     finally:
