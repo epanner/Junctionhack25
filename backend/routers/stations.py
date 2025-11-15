@@ -68,11 +68,6 @@ async def list_stations() -> List[dict]:
     return [_snapshot_or_404(station_id) for station_id in CHARGING_STATIONS.keys()]
 
 
-@router.get("/{station_id}", response_model=StationSnapshot)
-async def get_station(station_id: str) -> dict:
-    return _snapshot_or_404(station_id)
-
-
 @router.get("/cards", response_model=List[StationCard])
 async def list_station_cards(
     lat: Optional[float] = Query(default=None, alias="userLat"),
@@ -88,4 +83,9 @@ async def get_station_card(station_id: str) -> dict:
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
     return build_station_card(station)
+
+
+@router.get("/{station_id}", response_model=StationSnapshot)
+async def get_station(station_id: str) -> dict:
+    return _snapshot_or_404(station_id)
 

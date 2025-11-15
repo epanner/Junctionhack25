@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from data.charging_sessions import (
+    create_charging_session,
     get_active_session,
     get_charging_session,
     list_charging_sessions,
@@ -47,5 +48,10 @@ async def session_by_id(session_id: str) -> dict:
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return session
+
+
+@router.post("/", response_model=ChargingSessionModel, status_code=201)
+async def create_session(payload: ChargingSessionModel) -> dict:
+    return create_charging_session(payload.model_dump())
 
 

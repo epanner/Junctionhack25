@@ -1,9 +1,63 @@
+import { useEffect, useState } from 'react';
 import { User, Shield, CheckCircle2, ChevronRight, LogOut, Settings, Zap } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import {
+  getUserProfile,
+  getUserStatistics,
+  type UserProfile as UserProfileType,
+  type UserStatistics as UserStatisticsType,
+} from '../../data_sources';
 
 export function ProfilePage() {
+  const [userProfile, setUserProfile] = useState<UserProfileType | null>(null);
+  const [userStats, setUserStats] = useState<UserStatisticsType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [profile, stats] = await Promise.all([getUserProfile(), getUserStatistics()]);
+        if (!cancelled) {
+          setUserProfile(profile);
+          setUserStats(stats);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load profile');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-900 text-white">
+        Loading profile...
+      </div>
+    );
+  }
+
+  if (error || !userProfile || !userStats) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-center text-red-400 px-6">
+        <p className="mb-2 font-semibold">Unable to load profile data.</p>
+        <p className="text-sm text-red-300">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 pb-20">
       {/* Header */}
@@ -25,8 +79,8 @@ export function ProfilePage() {
             <User className="w-10 h-10 text-white" />
           </div>
           <div className="flex-1">
-            <h2 className="text-white text-xl mb-1">John Driver</h2>
-            <p className="text-slate-400 text-sm">john.driver@email.com</p>
+            <h2 className="text-white text-xl mb-1">{userProfile.name}</h2>
+            <p className="text-slate-400 text-sm">{userProfile.email}</p>
           </div>
         </div>
       </div>
@@ -48,14 +102,22 @@ export function ProfilePage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-slate-400 text-xs">Driver DID</span>
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                Verified
+              <Badge className={`${
+                userProfile.didVerified 
+                  ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                  : 'bg-red-500/20 text-red-400 border-red-500/30'
+              } text-xs`}>
+                {userProfile.didVerified ? 'Verified' : 'Not Verified'}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400 text-xs">Wallet Connected</span>
-              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
-                Active
+              <Badge className={`${
+                userProfile.walletConnected
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                  : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+              } text-xs`}>
+                {userProfile.walletConnected ? 'Active' : 'Inactive'}
               </Badge>
             </div>
           </div>
@@ -67,15 +129,15 @@ export function ProfilePage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2">
               <span className="text-slate-400 text-sm">Member Since</span>
-              <span className="text-white text-sm">Jan 2024</span>
+              <span className="text-white text-sm">{userProfile.memberSince}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-t border-slate-700">
               <span className="text-slate-400 text-sm">Total Sessions</span>
-              <span className="text-white text-sm">47</span>
+              <span className="text-white text-sm">{userStats.totalSessions}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-t border-slate-700">
               <span className="text-slate-400 text-sm">Total Charged</span>
-              <span className="text-white text-sm">1,240 kWh</span>
+              <span className="text-white text-sm">{userStats.totalEnergyCharged.toLocaleString()} kWh</span>
             </div>
           </div>
         </Card>

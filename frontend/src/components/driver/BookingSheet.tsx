@@ -1,20 +1,18 @@
-import { MapPin, Zap, Clock, DollarSign, Battery, ChevronDown, CheckCircle2, Gauge, TrendingUp, DollarSign as Cost } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { MapPin, Zap, Clock, DollarSign, Battery, ChevronDown, CheckCircle2, Gauge, TrendingUp, DollarSign as Cost, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Slider } from '../ui/slider';
 import { Badge } from '../ui/badge';
-import { useState } from 'react';
-
-interface Station {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  available: number;
-  total: number;
-  power: string;
-  price: string;
-  distance?: string;
-}
+import {
+  bookChargingSession,
+  getVehicleBatteryStatus,
+  getSmartChargingRecommendation,
+  getDefaultLocation,
+  type Station,
+  type OptimizationMode,
+  type SmartChargingRecommendation,
+  type VehicleBatteryStatus,
+} from '../../data_sources';
 
 interface BookingSheetProps {
   selectedStation: Station | null;
@@ -22,13 +20,11 @@ interface BookingSheetProps {
   setTargetSoC: (value: number) => void;
   departureTime: string;
   setDepartureTime: (value: string) => void;
-  onBook: () => void;
+  onBook?: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
   isSmartMode: boolean;
 }
-
-type OptimizationMode = 'cost' | 'speed' | 'balanced';
 
 export function BookingSheet({
   selectedStation,
@@ -36,29 +32,123 @@ export function BookingSheet({
   setTargetSoC,
   departureTime,
   setDepartureTime,
-  onBook,
+  onBook = () => undefined,
   isExpanded,
   onToggleExpand,
-  isSmartMode
+  isSmartMode,
 }: BookingSheetProps) {
-  const [currentBattery] = useState(45); // Current battery percentage
+  const [batteryStatus, setBatteryStatus] = useState<VehicleBatteryStatus | null>(null);
+  const [batteryError, setBatteryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBattery() {
+      try {
+        const status = await getVehicleBatteryStatus();
+        if (!cancelled) {
+          setBatteryStatus(status);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBatteryError(err instanceof Error ? err.message : 'Unable to load battery status');
+        }
+      }
+    }
+    loadBattery();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const currentBattery = batteryStatus?.currentSoC ?? 50;
+  const userLocation = getDefaultLocation();
+  
   const [optimizationMode, setOptimizationMode] = useState<OptimizationMode>('balanced');
   const [isCalculating, setIsCalculating] = useState(false);
-  const [showResult, setShowResult] = useState(false);
+  const [recommendation, setRecommendation] = useState<SmartChargingRecommendation | null>(null);
+  const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [bookingMessage, setBookingMessage] = useState<string | null>(null);
 
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
     setIsCalculating(true);
-    setShowResult(false);
+    setRecommendation(null);
     
-    // Simulate the three-way handshake animation (3 seconds)
-    setTimeout(() => {
+    // Call the smart charging recommendation API
+    try {
+      const result = await getSmartChargingRecommendation({
+        currentSoC: currentBattery,
+        targetSoC,
+        departureTime,
+        optimizationMode,
+        userLocation: {
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+        },
+      });
+      
+      setRecommendation(result);
+    } catch (error) {
+      console.error('Failed to get recommendation:', error);
+      // TODO: Show error message to user
+    } finally {
       setIsCalculating(false);
-      setShowResult(true);
-    }, 3000);
+    }
   };
 
+  const handleBookingSession = async (forcedRecommendation?: SmartChargingRecommendation | null) => {
+    if (!selectedStation) {
+      setBookingStatus('error');
+      setBookingMessage('Select a station to start charging.');
+      return;
+    }
+
+    setBookingStatus('loading');
+    setBookingMessage('Booking session and anchoring plan...');
+
+    try {
+      await bookChargingSession({
+        station: selectedStation,
+        currentSoC: currentBattery,
+        targetSoC,
+        departureTime,
+        recommendation: forcedRecommendation ?? recommendation,
+      });
+      setBookingStatus('success');
+      setBookingMessage('Session booked! Anchor stored on Solana.');
+      setRecommendation(null);
+      onBook?.();
+    } catch (err) {
+      setBookingStatus('error');
+      setBookingMessage(
+        err instanceof Error ? err.message : 'Failed to book charging session. Please try again.'
+      );
+    }
+  };
+
+  const handleAcceptRecommendation = () => {
+    void handleBookingSession(recommendation);
+  };
+
+  const handleDeclineRecommendation = () => {
+    // Decline and go back to preferences form
+    setRecommendation(null);
+  };
+
+  const renderBookingNotice = () =>
+    bookingMessage ? (
+      <div
+        className={`mb-4 text-xs rounded-lg px-3 py-2 border ${
+          bookingStatus === 'error'
+            ? 'bg-red-900/40 border-red-500/40 text-red-100'
+            : 'bg-emerald-900/30 border-emerald-500/40 text-emerald-100'
+        }`}
+      >
+        {bookingMessage}
+      </div>
+    ) : null;
+
   // Smart Mode View - Charging Preferences Form
-  if (isSmartMode && !showResult) {
+  if (isSmartMode && !recommendation) {
     return (
       <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl shadow-2xl transition-all duration-300"
         style={{ height: isExpanded ? '70%' : '70%' }}
@@ -72,6 +162,13 @@ export function BookingSheet({
         </div>
 
         <div className="px-5 pb-6 overflow-y-auto" style={{ height: 'calc(100% - 24px)' }}>
+          {batteryError && (
+            <div className="mb-4 text-xs text-red-200 bg-red-900/40 border border-red-500/30 rounded-lg px-3 py-2">
+              {batteryError}
+            </div>
+          )}
+          {renderBookingNotice()}
+          {renderBookingNotice()}
           {isCalculating ? (
             // Three-way handshake animation
             <div className="flex flex-col items-center justify-center h-full">
@@ -232,11 +329,11 @@ export function BookingSheet({
     );
   }
 
-  // Smart Mode Result View
-  if (isSmartMode && showResult && selectedStation) {
+  // Smart Mode Result View - Show recommendation with Accept/Decline options
+  if (isSmartMode && recommendation) {
     return (
       <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl shadow-2xl transition-all duration-300"
-        style={{ height: isExpanded ? '70%' : '70%' }}
+        style={{ height: isExpanded ? '80%' : '80%' }}
       >
         {/* Drag Handle */}
         <div 
@@ -246,7 +343,12 @@ export function BookingSheet({
           <div className="w-12 h-1 bg-slate-600 rounded-full"></div>
         </div>
 
-        <div className="px-5 pb-6 overflow-y-auto" style={{ height: 'calc(100% - 24px)' }}>
+        <div className="px-5 pb-24 overflow-y-auto" style={{ height: 'calc(100% - 24px)' }}>
+          {batteryError && (
+            <div className="mb-4 text-xs text-red-200 bg-red-900/40 border border-red-500/30 rounded-lg px-3 py-2">
+              {batteryError}
+            </div>
+          )}
           {/* Success Header */}
           <div className="text-center mb-4">
             <div className="w-16 h-16 mx-auto bg-gradient-to-br from-[#00FFA7] to-green-500 rounded-full flex items-center justify-center mb-2">
@@ -254,20 +356,21 @@ export function BookingSheet({
             </div>
             <h3 className="text-white mb-1">✨ Best Station Found!</h3>
             <p className="text-[#00FFA7] text-sm">AI-optimized for {optimizationMode}</p>
+            <p className="text-slate-400 text-xs mt-1">{recommendation.reasonCode}</p>
           </div>
 
           {/* Selected Station Info */}
           <div className="mb-4 pb-4 border-b border-slate-800">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <h3 className="text-white mb-1">{selectedStation.name}</h3>
+                <h3 className="text-white mb-1">{recommendation.stationName}</h3>
                 <div className="flex items-center gap-2 text-slate-400 text-xs">
                   <MapPin className="w-3 h-3" />
-                  <span>{selectedStation.distance || '2.3 km away'}</span>
+                  <span>{recommendation.distance} away</span>
                 </div>
               </div>
               <Badge className="bg-[#00FFA7]/20 text-[#00FFA7] border-[#00FFA7]/30">
-                Recommended
+                {recommendation.confidenceScore}% Match
               </Badge>
             </div>
             
@@ -277,14 +380,14 @@ export function BookingSheet({
                   <Zap className="w-3 h-3 text-blue-400" />
                   <span className="text-slate-400 text-xs">Max Power</span>
                 </div>
-                <div className="text-white text-sm">{selectedStation.power}</div>
+                <div className="text-white text-sm">{recommendation.maxPower}</div>
               </div>
               <div className="bg-slate-800/50 rounded-lg p-2.5">
                 <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="w-3 h-3 text-green-400" />
-                  <span className="text-slate-400 text-xs">Price</span>
+                  <Battery className="w-3 h-3 text-green-400" />
+                  <span className="text-slate-400 text-xs">Available</span>
                 </div>
-                <div className="text-white text-sm">{selectedStation.price}</div>
+                <div className="text-white text-sm">{recommendation.availability.available}/{recommendation.availability.total}</div>
               </div>
             </div>
           </div>
@@ -304,38 +407,56 @@ export function BookingSheet({
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-400">Energy Needed</span>
-                <span className="text-white">~{Math.round((targetSoC - currentBattery) * 0.75)} kWh</span>
+                <span className="text-white">{recommendation.energyNeeded} kWh</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-400">Ready By</span>
                 <span className="text-white">{departureTime}</span>
               </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Recommended Start</span>
+                <span className="text-white">{recommendation.startTime}</span>
+              </div>
             </div>
           </div>
 
-          {/* Estimated Cost & Time */}
+          {/* Price Comparison */}
           <div className="bg-gradient-to-br from-[#00FFA7]/20 to-green-900/30 border border-[#00FFA7]/50 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between mb-1">
+              <span className="text-slate-300 text-xs">Original Price</span>
+              <span className="text-slate-400 line-through">${(recommendation.estimatedTotalCost + recommendation.savings).toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between mb-1">
               <span className="text-slate-300 text-xs">Negotiated Price</span>
-              <span className="text-[#00FFA7]">~$4.20</span>
+              <span className="text-[#00FFA7]">${recommendation.estimatedTotalCost.toFixed(2)}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-300 text-xs">Estimated Time</span>
-              <span className="text-blue-400">~38 min</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-300 text-xs">Estimated Duration</span>
+              <span className="text-blue-400">{recommendation.estimatedDuration} min</span>
             </div>
-            <div className="mt-2 pt-2 border-t border-[#00FFA7]/30">
-              <span className="text-[#00FFA7] text-[10px]">💰 You save $0.80 with AI negotiation!</span>
+            <div className="pt-2 border-t border-[#00FFA7]/30">
+              <span className="text-[#00FFA7] text-[10px]">💰 You save ${recommendation.savings.toFixed(2)} with AI negotiation!</span>
             </div>
           </div>
 
-          {/* Book Button */}
-          <Button 
-            onClick={onBook}
-            className="w-full bg-gradient-to-r from-[#00FFA7] to-green-500 hover:from-[#00FFA7]/90 hover:to-green-600 text-slate-900 py-3"
-          >
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            Book Smart Charging
-          </Button>
+          {/* Action Buttons - Accept/Decline */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button 
+              onClick={handleDeclineRecommendation}
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Decline
+            </Button>
+            <Button 
+              onClick={handleAcceptRecommendation}
+              className="bg-gradient-to-r from-[#00FFA7] to-green-500 hover:from-[#00FFA7]/90 hover:to-green-600 text-slate-900"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Accept & Book
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -355,6 +476,12 @@ export function BookingSheet({
       </div>
 
       <div className="px-5 pb-6 overflow-y-auto" style={{ height: 'calc(100% - 24px)' }}>
+        {batteryError && (
+          <div className="mb-4 text-xs text-red-200 bg-red-900/40 border border-red-500/30 rounded-lg px-3 py-2">
+            {batteryError}
+          </div>
+        )}
+        {renderBookingNotice()}
         {selectedStation ? (
           <>
             {/* Selected Station Info */}
@@ -441,12 +568,13 @@ export function BookingSheet({
             </div>
 
             {/* Book Button */}
-            <Button 
-              onClick={onBook}
-              className="w-full bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white py-3"
+            <Button
+              onClick={() => void handleBookingSession()}
+              disabled={bookingStatus === 'loading'}
+              className="w-full bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white py-3 disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              Book & Start Charging
+              {bookingStatus === 'loading' ? 'Booking...' : 'Book & Start Charging'}
             </Button>
           </>
         ) : (

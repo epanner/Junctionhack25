@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from adapters.denso_did import DensoDIDClient
 from config import settings
@@ -23,6 +24,13 @@ async def lifespan(app: FastAPI):
             await denso.close()
 
 app = FastAPI(lifespan=lifespan, title="GridPass Backend API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(session_auth_router)
 app.include_router(stations_router)
 app.include_router(trust_anchor_router)

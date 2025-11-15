@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MobilePhoneFrame } from './driver/MobilePhoneFrame';
 import { MapView } from './driver/MapView';
 import { BookingSheet } from './driver/BookingSheet';
@@ -6,77 +6,7 @@ import { BottomNav } from './driver/BottomNav';
 import { ProfilePage } from './driver/ProfilePage';
 import { VehiclePage } from './driver/VehiclePage';
 import { SessionsPage } from './driver/SessionsPage';
-
-interface Station {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  available: number;
-  total: number;
-  power: string;
-  price: string;
-  distance?: string;
-}
-
-// Hardcoded stations around San Francisco
-const stations: Station[] = [
-  {
-    id: '1',
-    name: 'Station #42',
-    lat: 37.7849,
-    lng: -122.4094,
-    available: 3,
-    total: 4,
-    power: '150 kW',
-    price: '$0.18/kWh',
-    distance: '2.3 km'
-  },
-  {
-    id: '2',
-    name: 'Station #28',
-    lat: 37.7699,
-    lng: -122.4294,
-    available: 2,
-    total: 6,
-    power: '50 kW',
-    price: '$0.15/kWh',
-    distance: '3.1 km'
-  },
-  {
-    id: '3',
-    name: 'Station #15',
-    lat: 37.7899,
-    lng: -122.4194,
-    available: 4,
-    total: 4,
-    power: '250 kW',
-    price: '$0.22/kWh',
-    distance: '1.8 km'
-  },
-  {
-    id: '4',
-    name: 'Station #33',
-    lat: 37.7649,
-    lng: -122.4394,
-    available: 1,
-    total: 3,
-    power: '75 kW',
-    price: '$0.16/kWh',
-    distance: '4.5 km'
-  },
-  {
-    id: '5',
-    name: 'Station #19',
-    lat: 37.7799,
-    lng: -122.3994,
-    available: 0,
-    total: 2,
-    power: '120 kW',
-    price: '$0.19/kWh',
-    distance: '2.9 km'
-  }
-];
+import { getChargingStations, getDefaultLocation, type Station } from '../data_sources';
 
 export function DriverScreen() {
   const [activeTab, setActiveTab] = useState<'map' | 'profile' | 'vehicle' | 'sessions'>('map');
@@ -85,6 +15,60 @@ export function DriverScreen() {
   const [departureTime, setDepartureTime] = useState('15:00');
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [isSmartMode, setIsSmartMode] = useState(false);
+  const [stations, setStations] = useState<Station[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(true);
+  const [stationsError, setStationsError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState(getDefaultLocation());
+  const [locating, setLocating] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported in this browser.');
+      setLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          name: 'Current Location',
+        });
+        setLocating(false);
+      },
+      (err) => {
+        setLocationError(err.message || 'Unable to fetch current location.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStations() {
+      try {
+        const data = await getChargingStations(userLocation.lat, userLocation.lng, 50);
+        if (!cancelled) {
+          setStations(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setStationsError(err instanceof Error ? err.message : 'Failed to load stations');
+        }
+      } finally {
+        if (!cancelled) {
+          setStationsLoading(false);
+        }
+      }
+    }
+    loadStations();
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation.lat, userLocation.lng]);
 
   const selectedStation = selectedStationId 
     ? stations.find(s => s.id === selectedStationId) || null
@@ -98,8 +82,7 @@ export function DriverScreen() {
   };
 
   const handleBook = () => {
-    alert('Booking charging session...');
-    // TODO: Navigate to active session view
+    setIsSheetExpanded(false);
   };
 
   const handleSmartModeChange = (smartMode: boolean) => {
@@ -118,13 +101,28 @@ export function DriverScreen() {
             {/* Full-screen Map */}
             <div className="absolute inset-0">
               <MapView
-                userLat={37.7749}
-                userLng={-122.4194}
+                userLat={userLocation.lat}
+                userLng={userLocation.lng}
                 stations={stations}
                 selectedStation={selectedStationId || undefined}
                 onStationSelect={handleStationSelect}
                 onSmartModeChange={handleSmartModeChange}
               />
+              {(locating || stationsLoading) && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-sm px-4 py-2 rounded-full shadow-lg">
+                  {locating ? 'Detecting your location...' : 'Loading nearby stations...'}
+                </div>
+              )}
+              {locationError && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-900/80 text-yellow-100 text-sm px-4 py-2 rounded-full shadow-lg">
+                  {locationError}
+                </div>
+              )}
+              {stationsError && !stationsLoading && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-900/80 text-red-100 text-sm px-4 py-2 rounded-full shadow-lg">
+                  {stationsError}
+                </div>
+              )}
             </div>
 
             {/* Bottom Sheet */}

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 CHARGING_SESSIONS = [
     {
@@ -77,5 +77,13 @@ def get_active_session() -> Optional[dict]:
     if not ACTIVE_SESSION_ID:
         return None
     return get_charging_session(ACTIVE_SESSION_ID)
+
+
+def create_charging_session(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Inserts a newly created session at the top of the history list.
+    """
+    CHARGING_SESSIONS.insert(0, entry)
+    return entry
 
 

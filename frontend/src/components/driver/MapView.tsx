@@ -42,10 +42,10 @@ export function MapView({
   const userMarkerRef = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [useMapbox, setUseMapbox] = useState(
-    MAPBOX_TOKEN !== "YOUR_MAPBOX_ACCESS_TOKEN_HERE",
+    MAPBOX_TOKEN !== "",
   );
   const [error, setError] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState("San Francisco");
+  const [locationName, setLocationName] = useState("Espoo");
   const [isLocating, setIsLocating] = useState(false);
   const [isSmartMode, setIsSmartMode] = useState(false);
 
