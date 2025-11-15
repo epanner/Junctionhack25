@@ -19,6 +19,8 @@ import { Slider } from '../ui/slider';
 import { Badge } from '../ui/badge';
 import {
   bookChargingSession,
+  cancelChargingSession,
+  completeChargingSession,
   getVehicleBatteryStatus,
   getSmartChargingRecommendation,
   getDefaultLocation,
@@ -82,7 +84,7 @@ export function BookingSheet({
   const [isCalculating, setIsCalculating] = useState(false);
   const [recommendation, setRecommendation] = useState<SmartChargingRecommendation | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [bookingMessage] = useState<string | null>(null);
+  const [bookingMessage, setBookingMessage] = useState<string | null>(null);
   const [activeSessionCard, setActiveSessionCard] = useState<{
     session: ChargingSession;
     station: Station;
@@ -90,7 +92,7 @@ export function BookingSheet({
     status: 'booked' | 'charging';
     chargingStartedAt?: Date;
   } | null>(null);
-  const HEADER_SAFE_AREA_PX = 200;
+  const HEADER_SAFE_AREA_PX = 220;
   const MAX_EXPANDED_HEIGHT = `calc(100% - ${HEADER_SAFE_AREA_PX}px)`;
   const sheetHeights = {
     active: { collapsed: '48%', expanded: MAX_EXPANDED_HEIGHT },
@@ -130,10 +132,12 @@ export function BookingSheet({
   const handleBookingSession = async (forcedRecommendation?: SmartChargingRecommendation | null) => {
     if (!selectedStation) {
       setBookingStatus('error');
+      setBookingMessage('Select a station to start charging.');
       return;
     }
 
     setBookingStatus('loading');
+    setBookingMessage(null);
 
     try {
       const bookingResult = await bookChargingSession({
@@ -144,6 +148,7 @@ export function BookingSheet({
         recommendation: forcedRecommendation ?? recommendation,
       });
       setBookingStatus('success');
+      setBookingMessage('Session booked! Connector reserved.');
       setRecommendation(null);
       setActiveSessionCard({
         session: bookingResult.session,
@@ -154,6 +159,7 @@ export function BookingSheet({
       onBook?.();
     } catch (err) {
       setBookingStatus('error');
+      setBookingMessage(err instanceof Error ? err.message : 'Failed to book charging session.');
     }
   };
 
@@ -169,10 +175,10 @@ export function BookingSheet({
   const renderBookingNotice = () =>
     bookingMessage ? (
       <div
-        className={`mb-4 text-xs rounded-lg px-3 py-2 border ${
+        className={`mb-4 text-xs rounded-lg px-3 py-2 border text-white ${
           bookingStatus === 'error'
-            ? 'bg-red-900/40 border-red-500/30 text-red-100'
-            : 'bg-emerald-900/30 border-emerald-500/30 text-emerald-100'
+            ? 'bg-red-900/40 border-red-500/30'
+            : 'bg-emerald-900/30 border-emerald-500/30'
         }`}
       >
         {bookingMessage}
@@ -186,19 +192,44 @@ export function BookingSheet({
             ...prev,
             status: 'charging',
             chargingStartedAt: new Date(),
+            session: { ...prev.session, status: 'ongoing' },
           }
         : prev
     );
   };
 
-  const cancelActiveSession = () => {
-    setActiveSessionCard(null);
-    setBookingStatus('idle');
+  const cancelActiveSession = async () => {
+    if (!activeSessionCard) {
+      return;
+    }
+    try {
+      await cancelChargingSession(activeSessionCard.session.id);
+      setActiveSessionCard(null);
+      setBookingStatus('idle');
+      setBookingMessage('Booking cancelled and connector released.');
+      onBook?.();
+    } catch (error) {
+      console.error('Failed to cancel session:', error);
+      setBookingStatus('error');
+      setBookingMessage(error instanceof Error ? error.message : 'Failed to cancel session.');
+    }
   };
 
-  const stopCharging = () => {
-    setActiveSessionCard(null);
-    setBookingStatus('success');
+  const stopCharging = async () => {
+    if (!activeSessionCard) {
+      return;
+    }
+    try {
+      await completeChargingSession(activeSessionCard.session.id);
+      setActiveSessionCard(null);
+      setBookingStatus('success');
+      setBookingMessage('Charging session completed.');
+      onBook?.();
+    } catch (error) {
+      console.error('Failed to stop charging:', error);
+      setBookingStatus('error');
+      setBookingMessage(error instanceof Error ? error.message : 'Failed to stop charging.');
+    }
   };
 
   const chargingProgress = useMemo(() => {
@@ -318,28 +349,34 @@ export function BookingSheet({
             </div>
           </div>
 
-          <div className="flex gap-3">
+          {isCharging ? (
             <Button
-              variant="outline"
-              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
-              onClick={cancelActiveSession}
+              className="w-full bg-red-500 hover:bg-red-700 text-white"
+              onClick={() => {
+                void stopCharging();
+              }}
             >
-              Cancel
+              Stop Charging
             </Button>
-            {isCharging ? (
-              <Button className="flex-1 bg-red-600 hover:bg-red-700" onClick={stopCharging}>
-                Stop Charging
-              </Button>
-            ) : (
+          ) : (
+            <div className="w-full">
               <Button
-                className="flex-1 bg-green-500 hover:bg-green-600 text-slate-900"
+                className="w-1/2 bg-red-500 hover:bg-red-700 text-white"
+                onClick={() => {
+                  void cancelActiveSession();
+                }}
+              >
+                Cancel Charging
+              </Button>
+              <Button
+                className="w-1/2 bg-green-500 hover:bg-green-600 text-slate-900"
                 onClick={startCharging}
               >
                 <Play className="w-4 h-4 mr-2" />
                 Start Charging
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -642,7 +679,7 @@ export function BookingSheet({
             <Button 
               onClick={handleDeclineRecommendation}
               variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+              className="bg-red-500 hover:bg-red-700 text-white border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
             >
               <X className="w-4 h-4 mr-2" />
               Decline
