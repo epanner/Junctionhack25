@@ -7,6 +7,7 @@ from config import settings
 from routers.charging_sessions import router as charging_sessions_router
 from routers.session_auth import router as session_auth_router
 from routers.stations import router as stations_router
+from routers.trust_anchor import router as trust_anchor_router
 from routers.users import router as users_router
 from routers.vehicles import router as vehicles_router
 
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan, title="GridPass Backend API", version="0.1.0")
 app.include_router(session_auth_router)
 app.include_router(stations_router)
+app.include_router(trust_anchor_router)
 app.include_router(users_router)
 app.include_router(vehicles_router)
 app.include_router(charging_sessions_router)
