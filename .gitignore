@@ -7,5 +7,6 @@ __pycache__/
 *.pyc
 .cache/
 
-# Environment variables
+# Environment variables + secrets
 .env
+id.json
