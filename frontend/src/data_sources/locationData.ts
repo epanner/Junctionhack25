@@ -13,9 +13,9 @@ export interface UserLocation {
 // Default location (San Francisco)
 export const getDefaultLocation = (): UserLocation => {
   return {
-    lat: 37.7749,
-    lng: -122.4194,
-    name: 'San Francisco',
+    lat: 60.1569,
+    lng: 24.6295,
+    name: 'Espoo West Mobility Hub',
   };
 };
 

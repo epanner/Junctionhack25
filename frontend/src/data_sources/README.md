@@ -42,10 +42,17 @@ import {
   getChargingStations 
 } from '../data_sources';
 
-// Use in component
-const userProfile = getUserProfile();
-const vehicle = getVehicleInfo();
-const stations = getChargingStations();
+useEffect(() => {
+  async function loadData() {
+    const [userProfile, vehicle, stations] = await Promise.all([
+      getUserProfile(),
+      getVehicleInfo(),
+      getChargingStations(),
+    ]);
+    // set state with the results
+  }
+  loadData();
+}, []);
 ```
 
 Or import everything:

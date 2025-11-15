@@ -30,37 +30,16 @@ export interface ChargingHistory {
   averagePerMonth: number; // in kWh
 }
 
-// Mock vehicle info - replace with API call
-export const getVehicleInfo = (): VehicleInfo => {
-  return {
-    id: 'vehicle_001',
-    make: 'Tesla',
-    model: 'Model 3',
-    variant: 'Long Range AWD',
-    batteryCapacity: 60,
-    maxACCharging: 11,
-    maxDCCharging: 170,
-    efficiency: 16.5,
-    did: 'did:ev:0x742d35Cc6634C0532925a3b8...',
-    didVerified: true,
-  };
+import { apiGet } from './apiClient';
+
+export const getVehicleInfo = async (): Promise<VehicleInfo> => {
+  return apiGet<VehicleInfo>('/api/vehicles/info');
 };
 
-// Mock battery status - replace with API call
-export const getVehicleBatteryStatus = (): VehicleBatteryStatus => {
-  return {
-    currentSoC: 68,
-    currentEnergy: 41,
-    estimatedRange: 250,
-    batteryHealth: 98,
-  };
+export const getVehicleBatteryStatus = async (): Promise<VehicleBatteryStatus> => {
+  return apiGet<VehicleBatteryStatus>('/api/vehicles/battery-status');
 };
 
-// Mock charging history - replace with API call
-export const getVehicleChargingHistory = (): ChargingHistory => {
-  return {
-    totalSessions: 47,
-    totalEnergy: 1240,
-    averagePerMonth: 155,
-  };
+export const getVehicleChargingHistory = async (): Promise<ChargingHistory> => {
+  return apiGet<ChargingHistory>('/api/vehicles/charging-history');
 };

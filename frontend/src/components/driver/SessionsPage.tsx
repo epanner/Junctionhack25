@@ -1,72 +1,62 @@
+import { useEffect, useState } from 'react';
 import { Clock, MapPin, Battery, DollarSign, Zap, Calendar } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
-
-interface Session {
-  id: string;
-  date: string;
-  station: string;
-  location: string;
-  energy: string;
-  cost: string;
-  duration: string;
-  status: 'completed' | 'ongoing';
-}
-
-const sessions: Session[] = [
-  {
-    id: '1',
-    date: 'Today, 10:30 AM',
-    station: 'Station #42',
-    location: '123 Market St',
-    energy: '24.5 kWh',
-    cost: '$4.32',
-    duration: '45 min',
-    status: 'ongoing'
-  },
-  {
-    id: '2',
-    date: 'Nov 14, 2025',
-    station: 'Station #28',
-    location: '456 Main Ave',
-    energy: '32.1 kWh',
-    cost: '$5.87',
-    duration: '1h 15m',
-    status: 'completed'
-  },
-  {
-    id: '3',
-    date: 'Nov 12, 2025',
-    station: 'Station #15',
-    location: '789 Oak Blvd',
-    energy: '28.3 kWh',
-    cost: '$4.95',
-    duration: '52 min',
-    status: 'completed'
-  },
-  {
-    id: '4',
-    date: 'Nov 10, 2025',
-    station: 'Station #42',
-    location: '123 Market St',
-    energy: '26.7 kWh',
-    cost: '$4.68',
-    duration: '48 min',
-    status: 'completed'
-  },
-  {
-    id: '5',
-    date: 'Nov 8, 2025',
-    station: 'Station #33',
-    location: '321 Pine St',
-    energy: '30.2 kWh',
-    cost: '$5.21',
-    duration: '58 min',
-    status: 'completed'
-  }
-];
+import {
+  getChargingSessions,
+  getUserStatistics,
+  type ChargingSession,
+  type UserStatistics as UserStatisticsType,
+} from '../../data_sources';
 
 export function SessionsPage() {
+  const [sessions, setSessions] = useState<ChargingSession[]>([]);
+  const [userStats, setUserStats] = useState<UserStatisticsType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [sessionList, stats] = await Promise.all([getChargingSessions(), getUserStatistics()]);
+        if (!cancelled) {
+          setSessions(sessionList);
+          setUserStats(stats);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load sessions');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-900 text-white">
+        Loading sessions...
+      </div>
+    );
+  }
+
+  if (error || !userStats) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-center text-red-400 px-6">
+        <p className="mb-2 font-semibold">Unable to load session data.</p>
+        <p className="text-sm text-red-300">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 pb-20">
       {/* Header */}
@@ -92,17 +82,17 @@ export function SessionsPage() {
         <div className="grid grid-cols-3 gap-3 mb-2">
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
             <Calendar className="w-4 h-4 text-blue-400 mx-auto mb-1" />
-            <div className="text-white text-sm">47</div>
+            <div className="text-white text-sm">{userStats.totalSessions}</div>
             <div className="text-slate-400 text-xs">Sessions</div>
           </div>
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
             <Zap className="w-4 h-4 text-green-400 mx-auto mb-1" />
-            <div className="text-white text-sm">1,240</div>
+            <div className="text-white text-sm">{userStats.totalEnergyCharged.toLocaleString()}</div>
             <div className="text-slate-400 text-xs">kWh</div>
           </div>
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
             <DollarSign className="w-4 h-4 text-yellow-400 mx-auto mb-1" />
-            <div className="text-white text-sm">$218</div>
+            <div className="text-white text-sm">${userStats.totalSpent}</div>
             <div className="text-slate-400 text-xs">Total</div>
           </div>
         </div>

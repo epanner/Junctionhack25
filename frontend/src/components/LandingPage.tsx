@@ -35,7 +35,7 @@ export function LandingPage({ onEnterApp }: LandingPageProps) {
               <div className="bg-gradient-to-br from-blue-500 to-green-400 p-2 rounded-lg">
                 <Zap className="w-6 h-6 text-white" />
               </div>
-              <span className="text-white text-xl">GridPass</span>
+              <span className="text-white text-xl">ChargeID</span>
             </div>
             <Button
               onClick={onEnterApp}
@@ -60,7 +60,7 @@ export function LandingPage({ onEnterApp }: LandingPageProps) {
             </h1>
             
             <p className="text-slate-300 text-xl max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
-              GridPass revolutionizes electric vehicle charging through secure DID authentication, intelligent AI optimization, and real-time energy management.
+              ChargeID revolutionizes electric vehicle charging through secure DID authentication, intelligent AI optimization, and real-time energy management.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4 animate-fade-in-up animation-delay-400">
@@ -199,7 +199,7 @@ export function LandingPage({ onEnterApp }: LandingPageProps) {
               className="bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white px-12 shadow-lg shadow-blue-500/50"
             >
               <Battery className="w-5 h-5 mr-2" />
-              Launch GridPass
+              Launch ChargeID
             </Button>
           </div>
         </section>
@@ -212,12 +212,12 @@ export function LandingPage({ onEnterApp }: LandingPageProps) {
                 <Zap className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-white">GridPass</div>
+                <div className="text-white">ChargeID</div>
                 <div className="text-slate-500 text-xs">AI-Optimized Charging with Decentralized Identity</div>
               </div>
             </div>
             <div className="text-slate-500 text-sm">
-              © 2025 GridPass. Powered by DID and AI.
+              © 2025 ChargeID. Powered by DID and AI.
             </div>
           </div>
         </footer>

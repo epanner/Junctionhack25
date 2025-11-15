@@ -1,5 +1,7 @@
+import React, { type ReactNode } from 'react';
+
 interface MobilePhoneFrameProps {
-  children: React.ReactNode;
+  children?: ReactNode;
 }
 
 export function MobilePhoneFrame({ children }: MobilePhoneFrameProps) {
