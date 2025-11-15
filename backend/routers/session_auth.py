@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from data.charging_stations import get_station_snapshot, occupy_connector
 
-router = APIRouter(prefix="/sessions", tags=["session-auth"])
+router = APIRouter(prefix="/api/sessions", tags=["session-auth"])
 
 
 class SessionAuthRequest(BaseModel):
